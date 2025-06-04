@@ -1,7 +1,4 @@
-import itertools
-from itertools import combinations, product
-
-import networkx as nx
+import networkx as nx  # type: ignore
 from networkx import Graph, max_weight_matching, NetworkXNoCycle, find_cycle
 
 
@@ -11,7 +8,7 @@ class Algorithm:
 
     @staticmethod
     def find_max_matching(g: Graph) -> Graph:
-        matching: list[(int, int)] = max_weight_matching(g, True)
+        matching: list[tuple[int, int]] = max_weight_matching(g, True)
         edges_with_weights = [(x, y, g.get_edge_data(x, y)["weight"]) for x, y in matching]
         f = Graph()
         f.add_weighted_edges_from(edges_with_weights)
@@ -27,7 +24,7 @@ class Algorithm:
                 cycle = find_cycle(g, orientation='original')
 
                 if len(cycle) < 3:
-                    raise ValueError()
+                    raise ValueError("find incorrect cycle")
 
                 f = Graph()
                 nodes_cycle = [(x, y, g.get_edge_data(x, y)["weight"]) for x, y, _ in cycle]
@@ -41,41 +38,42 @@ class Algorithm:
         return two_factors
 
     @staticmethod
-    def build_hamilton_cycle(g: Graph, t: Graph) -> Graph:
-        if g.number_of_nodes() != t.number_of_nodes():
-            raise ValueError("Graphs must have same number of nodes")
+    def build_hamilton_cycle(g: Graph, t: Graph) -> None:
+        def add_weighted_edge(u: int, v: int) -> None:
+            t.add_edge(u, v, weight=g.get_edge_data(u, v)["weight"])
 
         endpoint_groups = []
-        endpoints = []
 
         for endpoint_group in nx.connected_components(t):
             subgraph = t.subgraph(endpoint_group)
             component_endpoints = [node for node, degree in subgraph.degree() if degree == 1]
+
+            if len(component_endpoints) != 2:
+                raise ValueError("exactly two vertices have not been found")
+
             endpoint_groups.append(component_endpoints)
-            endpoints.extend(component_endpoints)
 
-        q = Graph()
+        for i in range(0, len(endpoint_groups) - 1):
+            u1, v1 = endpoint_groups[i]
+            u2, v2 = endpoint_groups[i + 1]
 
-        for endpoint_group in endpoint_groups:
-            for u in endpoint_group:
-                for w in g.neighbors(u):
-                    if w in endpoints and w not in endpoint_group:
-                        q.add_edge(u, w)
+            add_weighted_edge(v1, u2)
 
-        matching = max_weight_matching(q)
+        add_weighted_edge(endpoint_groups[-1][1], endpoint_groups[0][0])
 
-        for u, v in matching:
-            t.add_edge(u, v)
+    @staticmethod
+    def get_weighted_edge(g: Graph) -> list[tuple[int, int, float]]:
+        return [(x, y, data['weight']) for x, y, data in g.edges(data=True)]
 
     @staticmethod
     def weight(g: Graph) -> float:
-        return sum([g.get_edge_data(x, y)["weight"] for x, y in g.edges], 0)
+        return sum([data["weight"] for _, _, data in g.edges(data=True)])  # type: ignore
 
     def find_solution(self) -> float:
         if self._graph.number_of_nodes() % 2 == 0:
             matching, two_factor = self.find_max_matching(self._graph), self.find_2_factor(self._graph)
             t1, t2 = matching, Graph()
-            ...
+            #TODO не реализовано
         else:
             g = self._graph.copy(); g.remove_node(2)
             matching, two_factor = self.find_max_matching(g), self.find_2_factor(self._graph)
@@ -91,6 +89,9 @@ class Algorithm:
 
                         if weight > max_w:
                             edge = (u, v, weight); max_w = weight
+
+            if edge is None:
+                raise ValueError("edge not found")
 
             u = edge[0]
 
@@ -134,7 +135,10 @@ class Algorithm:
                 s1.add_weighted_edges_from([edge])
                 two_factor = two_factor[2:]; t2 = s1
 
-            v1, x1, w1 = v_edge; v2, x2, w2 = u_edge; t1 = matching;
+            if v_edge is None or u_edge is None:
+                raise ValueError("edges not found")
+
+            v1, x1, w1 = v_edge;v2, x2, w2 = u_edge; t1 = matching;
             t1.add_edge(v1, x1, weight=w1); t1.add_edge(v2, x2, weight=w2)
 
         for graph in two_factor:
@@ -150,5 +154,5 @@ class Algorithm:
         else:
             t = t2.copy()
 
-        t = self.build_hamilton_cycle(self._graph, t)
+        self.build_hamilton_cycle(self._graph, t)
         return self.weight(t)
