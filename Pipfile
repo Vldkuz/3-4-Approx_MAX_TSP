@@ -4,10 +4,10 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-networkx = "*"
-tsplib95 = "*"
-ortools = "*"
-mypy = "*"
+networkx = "==2.8.8"
+tsplib95 = "==0.7.1"
+ortools = "==9.12.4544"
+mypy = "==1.16.0"
 
 [dev-packages]
 

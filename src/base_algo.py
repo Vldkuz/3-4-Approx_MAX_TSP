@@ -1,7 +1,7 @@
-from typing import Callable, Any, Iterable
+from typing import Callable, Any, Iterator
 
 import networkx as nx  # type: ignore
-from networkx import Graph, max_weight_matching, NetworkXNoCycle, find_cycle
+from networkx import Graph
 
 
 class Algorithm:
@@ -10,39 +10,55 @@ class Algorithm:
 
     @staticmethod
     def find_max_matching(g: Graph) -> Graph:
-        matching: list[tuple[int, int]] = max_weight_matching(g, True)
+        matching: list[tuple[int, int]] = nx.max_weight_matching(g, True)
         edges_with_weights = [(x, y, g.get_edge_data(x, y)["weight"]) for x, y in matching]
         f = Graph()
         f.add_weighted_edges_from(edges_with_weights)
         return f
 
-    @staticmethod
-    def find_2_factor(g: Graph) -> list[Graph]:
-        two_factors = []
-        g = g.copy()
+    def find_2_factor(self, g: Graph) -> list[Graph]:
+        def cycle_edges(n: int) -> Iterator[tuple[int, int]]:
+            for j in range(n):
+                yield j, (j + 1) % n
 
-        while True:
-            try:
-                cycle = find_cycle(g, orientation='original')
+        def add_shift_edges(h: Graph, shift: int, n: int) -> None:
+            for ud, vd in cycle_edges(n):
+                self.add_edge(h, nodes[shift + ud], nodes[shift + vd])
 
-                if len(cycle) < 3:
-                    raise ValueError("find incorrect cycle")
+        two_factor = []
+        nodes = list(g.nodes)
 
-                f = Graph()
-                nodes_cycle = [(x, y, g.get_edge_data(x, y)["weight"]) for x, y, _ in cycle]
-                nodes = [x for x, _, _ in nodes_cycle];
-                g.remove_nodes_from(nodes)
-                f.add_weighted_edges_from(nodes_cycle)
-                two_factors.append(f)
-            except NetworkXNoCycle:
-                break
+        last = 0
+        for i in range(0, g.number_of_nodes() - 5, 3):
+            c = Graph(); add_shift_edges(c, i, 3)
+            two_factor.append(c)
+            last = i
 
-        return two_factors
+        last += 3
+        c = Graph(); add_shift_edges(c, last, g.number_of_nodes() - last)
+        two_factor.append(c)
 
-    def add_weighted_edge(self, g: Graph, u: int, v: int) -> None:
+        return two_factor
+
+    def add_edge(self, g: Graph, u: int, v: int) -> None:
         g.add_edge(u, v, weight=self._graph.get_edge_data(u, v)["weight"])
 
-    def build_hamilton_cycle(self, g: Graph, t: Graph) -> None:
+    @staticmethod
+    def remove_edge(g: Graph, u: int, v: int) -> None:
+        g.remove_edge(u, v)
+
+    @staticmethod
+    def has_cycle(g: Graph, u: int) -> bool:
+        component = nx.node_connected_component(g, u)
+        subgraph = g.subgraph(component)
+
+        try:
+            nx.find_cycle(subgraph)
+            return True
+        except nx.NetworkXNoCycle:
+            return False
+
+    def build_hamilton_cycle(self, t: Graph) -> None:
         endpoint_groups = []
 
         for endpoint_group in nx.connected_components(t):
@@ -58,70 +74,104 @@ class Algorithm:
             u1, v1 = endpoint_groups[i]
             u2, v2 = endpoint_groups[i + 1]
 
-            self.add_weighted_edge(t, v1, u2)
+            self.add_edge(t, v1, u2)
 
-        self.add_weighted_edge(t, endpoint_groups[-1][1], endpoint_groups[0][0])
+        self.add_edge(t, endpoint_groups[-1][1], endpoint_groups[0][0])
+
+    def add_edge_without_cycle(self, t: Graph, cycle: Graph) -> tuple[int, int, dict[str, Any]]:
+        for u, v, data in cycle.edges(data=True):
+            self.add_edge(t, u, v)
+
+            if self.has_cycle(t, u):
+                self.remove_edge(t, u, v)
+                continue
+
+            return u, v, data
+
+        raise ValueError("added edge which not apply cycle not found")
+
+    def remove_edge_without_cycle(self, t: Graph, cycle: Graph) -> tuple[int, int, dict[str, Any]]:
+        for u, v, data in cycle.edges(data=True):
+            if t.has_edge(u, v):
+                self.remove_edge(t, u, v)
+
+                if self.has_cycle(t, u):
+                    self.add_edge(t, u, v)
+                    continue
+
+                return u, v, data
+
+        raise ValueError("removed edge which not apply cycle not found")
 
     @staticmethod
     def get_weight(g: Graph) -> float:
         return sum([data["weight"] for _, _, data in g.edges(data=True)])  # type: ignore
 
-    @staticmethod
-    def get_graph_from_2_faction(two_factor: list[Graph]) -> Graph:
-        g = Graph()
+    def even_solution(
+            self,
+            matching: Graph | None = None,
+            two_factor: list[Graph] | None = None,
+            t1: Graph | None = None,
+            t2: Graph | None = None
+    ) -> Graph:
+        if matching is None:
+            matching = self.find_max_matching(self._graph)
+
+        if two_factor is None:
+            two_factor = self.find_2_factor(self._graph)
+
+        if t1 is None:
+            t1 = matching.copy()
+
+        if t2 is None:
+            t2 = nx.compose_all(two_factor)
 
         for cycle in two_factor:
-            g.add_edges_from(cycle.edges(data=True))
+            filtered_cycle = cycle.copy(); filtered_cycle.remove_edges_from(matching.edges())
+            u, v, _ = self.add_edge_without_cycle(t1, filtered_cycle)
+            self.remove_edge(t2, u, v)
 
-        return g
-
-    def even_solution(self, matching: Graph, two_factor: list[Graph]) -> Graph:
-        t1, t2 = matching, self.get_graph_from_2_faction(two_factor)
-
-        edges = [next(
-            edge for edge in cycle.edges(data=True) if not matching.has_edge(edge[0], edge[1])
-        ) for cycle in two_factor]
-
-        t1.add_edges_from(edges)
-        t2.remove_edges_from(edges)
         t = max(t1, t2, key=lambda graph: self.get_weight(graph))
-
-        self.build_hamilton_cycle(self._graph, t)
-
+        self.build_hamilton_cycle(t)
         return t
 
-    @staticmethod
-    def pop[T](collection: list[T], condition: Callable[[T], bool]) -> Graph:
-        index = next(idx for idx, cycle in enumerate(collection) if condition(cycle))
-        return collection.pop(index)
+    def odd_solution(self) -> Graph:
+        two_factor = self.find_2_factor(self._graph)
 
-    def odd_solution(self, matching: Graph, two_factor: list[Graph]) -> Graph:
-        t1, t2 = matching, self.get_graph_from_2_faction(two_factor)
-        u = next(iter(self._graph.nodes))
-        g = self._graph.copy(); g.remove_node(u)
+        w = next(iter(self._graph.nodes))
+        g = self._graph.copy(); g.remove_node(w)
 
-        edge = sorted(self._graph.edges(u, data=True), key=lambda edge: edge[2]['weight'], reverse=True)[0]
+        matching = self.find_max_matching(g)
+        t1, t2 = matching.copy(), nx.compose_all(two_factor)
 
-        cycles = [self.pop(two_factor, condition=lambda cycle: cycle.has_node(edge[i])) for i in (0, 1)]
+        edge = max(self._graph.edges(w, data=True), key=lambda edge: edge[2]['weight'])
+        self.add_edge(t2, edge[0], edge[1])
 
-        for i, cycle in enumerate(cycles):
-            v = next(iter(cycle.neighbors(edge[i])))
-            t2.remove_edge(edge[i], v)
-            self.add_weighted_edge(t1, edge[i], v)
+        cycles = [next(cycle for cycle in two_factor if cycle.has_node(edge[i])) for i in (0, 1)]
 
-        edges = [next(
-            edge for edge in cycle.edges(data=True) if not matching.has_edge(edge[0], edge[1])
-        ) for cycle in two_factor]
+        if cycles[0] == cycles[1]:
+            cycle = cycles[0]
 
-        t2.remove_edges_from(edges)
-        t1.add_edges_from(edges)
-        t = max(t1, t2, key=self.get_weight)
+            v = next(iter(cycle.neighbors(edge[0])))
+            t2.remove_edge(edge[0], v)
+            self.add_edge(t1, edge[0], v)
 
-        self.build_hamilton_cycle(self._graph, t)
+            u, v, _ = self.remove_edge_without_cycle(t2, cycle)
+            self.add_edge(t1, u, v)
+            two_factor.remove(cycle)
+        else:
+            for i, cycle in enumerate(cycles):
+                v = next(iter(cycle.neighbors(edge[i])))
+                t2.remove_edge(edge[i], v)
+                self.add_edge(t1, edge[i], v)
 
-        return t
+            for i in 0, 1:
+                two_factor.remove(cycles[i])
+
+        return self.even_solution(matching, two_factor, t1, t2)
 
     def find_solution(self) -> float:
-        matching, two_factor = self.find_max_matching(self._graph), self.find_2_factor(self._graph)
-        t = self.even_solution(matching, two_factor) if self._graph.number_of_nodes() % 2 == 0 else self.odd_solution(matching, two_factor)
+        t = self.even_solution() if self._graph.number_of_nodes() % 2 == 0\
+            else self.odd_solution()
+
         return self.get_weight(t)

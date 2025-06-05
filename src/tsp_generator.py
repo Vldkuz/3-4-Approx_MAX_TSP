@@ -10,7 +10,7 @@ def generate_tsp_file(n: int, filename: str) -> None:
         "COMMENT: Randomly generated TSP problem",
         "TYPE: TSP",
         f"DIMENSION: {n}",
-        "EDGE_WEIGHT_TYPE: EUC_2D",
+        "EDGE_WEIGHT_TYPE: SPECIAL",
         "NODE_COORD_SECTION"
     ]
 

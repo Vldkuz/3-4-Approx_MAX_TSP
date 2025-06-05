@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -6,7 +7,7 @@ from typing import Any
 import tsplib95  # type: ignore
 from networkx.classes import Graph  # type: ignore
 
-from base_algo import Algorithm
+from src.base_algo import Algorithm
 
 base_path = Path(__file__).resolve().parent.parent / 'datasets'
 
@@ -18,15 +19,18 @@ def get_path(n: int) -> Path:
     return base_path / f'custom{n}.tsp'
 
 
+def negative_distance(start, end) -> float:  # type: ignore
+    return -tsplib95.distances.euclidean(start, end)  # type: ignore
+
+
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
-    problem = tsplib95.load(path)
-    graph = problem.get_graph()
-    opt_solve = problem.trace_canonical_tour()
+    problem = tsplib95.load(path, special=negative_distance)
+    opt_solve = -problem.trace_canonical_tour()
     new_graph = Graph()
+    graph = problem.get_graph()
     new_edges = [(x, y, -graph.get_edge_data(x, y)["weight"]) for x, y in graph.edges if x != y]
     new_graph.add_weighted_edges_from(new_edges)
-    max_opt_solve = -opt_solve
-    return new_graph, max_opt_solve
+    return new_graph, opt_solve
 
 
 def solve(path: Path) -> None:
