@@ -25,10 +25,10 @@ def negative_distance(start, end) -> float:  # type: ignore
 
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
     problem = tsplib95.load(path, special=negative_distance)
-    opt_solve = -problem.trace_canonical_tour()
+    opt_solve = problem.trace_canonical_tour()
     new_graph = Graph()
     graph = problem.get_graph()
-    new_edges = [(x, y, -graph.get_edge_data(x, y)["weight"]) for x, y in graph.edges if x != y]
+    new_edges = [(x, y, graph.get_edge_data(x, y)["weight"]) for x, y in graph.edges if x != y]
     new_graph.add_weighted_edges_from(new_edges)
     return new_graph, opt_solve
 
