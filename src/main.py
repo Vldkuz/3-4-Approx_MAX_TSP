@@ -11,6 +11,30 @@ from src.base_algo import Algorithm
 
 base_path = Path(__file__).resolve().parent.parent / 'datasets'
 
+optimal = {
+    10: 2892,
+    11: 2869,
+    20: 3753,
+    21: 3673,
+    50: 5978,
+    51: 5775,
+    100: 7740,
+    101: 7748
+}
+
+optimal_path = {
+    10: base_path / 'solve10.o',
+    11: base_path / 'solve11.o',
+    20: base_path / 'solve20.o',
+    21: base_path / 'solve21.o',
+    50: base_path / 'solve50.o',
+    51: base_path / 'solve51.o',
+    100: base_path / 'solve100.o',
+    101: base_path / 'solve101.o'
+}
+
+
+
 "Оптимумы для 10 - 2892"
 "Оптимумы для 11 - 2869"
 "Оптимумы для 20 - 3753"
@@ -34,13 +58,15 @@ def negative_distance(start, end) -> float:  # type: ignore
 
 
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
-    problem = tsplib95.load(path, special=negative_distance)
-    opt_solve = problem.trace_canonical_tour() # TODO Пересчитать оптимальный маршрут с учетом максимального веса ребра
+    problem = tsplib95.load(path)
     new_graph = Graph()
     graph = problem.get_graph()
-    new_edges = [(x, y, graph.get_edge_data(x, y)["weight"]) for x, y in graph.edges if x != y]
-    new_graph.add_weighted_edges_from(new_edges)
-    return new_graph, opt_solve
+    edges = [(x,y, -graph.get_edge_data(x, y)["weight"]) for x,y in graph.edges if x != y]
+    new_graph.add_weighted_edges_from(edges)
+    n = new_graph.number_of_nodes()
+    opt = -optimal[n]
+
+    return new_graph, opt
 
 
 def solve(path: Path) -> None:
