@@ -11,6 +11,16 @@ from src.base_algo import Algorithm
 
 base_path = Path(__file__).resolve().parent.parent / 'datasets'
 
+"Оптимумы для 10 - 2892"
+"Оптимумы для 11 - 2869"
+"Оптимумы для 20 - 3753"
+"Оптимум для 21 - 3673"
+"Оптимум для 50 - 5978"
+"Оптимум для 51 - 5775"
+"Оптимум для 100 - 7740"
+"Оптимум для 101 - 7748"
+
+"Пересчет оптимумов такой - n * w_max - w_i_j"
 
 def get_path(n: int) -> Path:
     if n not in (10, 11, 20, 21, 50, 51, 100, 101):
@@ -25,7 +35,7 @@ def negative_distance(start, end) -> float:  # type: ignore
 
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
     problem = tsplib95.load(path, special=negative_distance)
-    opt_solve = problem.trace_canonical_tour()
+    opt_solve = problem.trace_canonical_tour() # TODO Пересчитать оптимальный маршрут с учетом максимального веса ребра
     new_graph = Graph()
     graph = problem.get_graph()
     new_edges = [(x, y, graph.get_edge_data(x, y)["weight"]) for x, y in graph.edges if x != y]
