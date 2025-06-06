@@ -1,4 +1,4 @@
-from typing import Callable, Any, Iterator
+from typing import Any, Iterator
 
 import networkx as nx  # type: ignore
 from networkx import Graph
@@ -124,12 +124,15 @@ class Algorithm:
             t1 = matching.copy()
 
         if t2 is None:
-            t2 = nx.compose_all(two_factor)
+            t2 = Graph()
 
         for cycle in two_factor:
-            filtered_cycle = cycle.copy(); filtered_cycle.remove_edges_from(matching.edges())
-            u, v, _ = self.add_edge_without_cycle(t1, filtered_cycle)
-            self.remove_edge(t2, u, v)
+            edges = set(cycle.edges()); u, v  =  edges.pop()
+            t1.add_edge(u,v, weight = cycle.get_edge_data(u, v)["weight"])
+
+            for edge in edges:
+                u,v = edge
+                t2.add_edge(u,v, weight = cycle.get_edge_data(u, v)["weight"])
 
         t = max(t1, t2, key=lambda graph: self.get_weight(graph))
         self.build_hamilton_cycle(t)
