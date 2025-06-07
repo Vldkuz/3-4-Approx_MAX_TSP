@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from unittest import TestCase
 
@@ -17,7 +16,6 @@ class TestAlgo(TestCase):
             g, opt = inverse_tsp(path)
             solver = Algorithm(g)
             actual_opt = solver.find_solution()
-            # self.assertLess(actual_opt, 0.75 * opt)
             print(f"{n}Problem(actual={actual_opt}, opt = {opt})")
             print(f"{actual_opt / opt})")
             print(actual_opt / opt >= 0.75)
