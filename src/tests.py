@@ -3,19 +3,23 @@ from unittest import TestCase
 
 from networkx import Graph  # type: ignore
 
-from src.base_algo import Algorithm
-from src.main import inverse_tsp
+from src.algo import algo
 
-base_path = Path(__file__).resolve().parent.parent / 'datasets'
+base_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' / 'tasks'
 
 
 class TestAlgo(TestCase):
-    def test_custom_tsp(self) -> None:
-        for n in (10, 11, 20, 21, 50, 51, 100, 101):
-            path = base_path / f"custom{n}.tsp"
-            g, opt = inverse_tsp(path)
-            solver = Algorithm(g)
-            actual_opt = solver.find_solution()
-            print(f"{n}Problem(actual={actual_opt}, opt = {opt})")
-            print(f"{actual_opt / opt})")
-            print(actual_opt / opt >= 0.75)
+
+    def test_four(self):
+        g = Graph(); edges = [(1, 2, 10), (2, 3, 100), (3, 4, 20), (1, 4, 50), (1, 3, 1), (2, 4, 1)]
+        g.add_weighted_edges_from(edges)
+        solution = algo(g)
+        print(solution)
+
+    def test_three(self):
+        g = Graph(); edges = [(1,2, 10), (1,3, 11), (1, 4, 12), (1, 5, 13), (2, 3, 100), (2, 4, 1), (2, 5, 1), (3, 4, 100), (3, 5, 1), (4, 5, 100)]
+        g.add_weighted_edges_from(edges)
+        solution = algo(g)
+        print(solution)
+
+

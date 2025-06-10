@@ -1,91 +1,171 @@
 import argparse
+import os
+from multiprocessing import Pool
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import tsplib95  # type: ignore
 from networkx.classes import Graph  # type: ignore
 
-from src.base_algo import Algorithm
+from algo import algo
 
-base_path = Path(__file__).resolve().parent.parent / 'datasets'
+base_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' / 'tasks'
+base_solve_path = Path(__file__).resolve().parent.parent / 'datasets' / 'solve'
 
 optimal = {
-    10: 2892,
-    11: 2869,
-    20: 3753,
-    21: 3673,
-    50: 5978,
-    51: 5775,
-    100: 7740,
-    101: 7748
+    "a280" : 2579,
+    "ali535" : 202339,
+    "att48" : 10628,
+    "att532" : 27686,
+    "bayg29" : 1610,
+    "bays29" : 2020,
+    "berlin52" : 7542,
+    "bier127" : 118282,
+    "brazil58" : 25395,
+    "brd14051" : 469385,
+    "brg180" : 1950,
+    "burma14" : 3323,
+    "ch130" : 6110,
+    "ch150" : 6528,
+    "d198" : 15780,
+    "d493" : 35002,
+    "d657" : 48912,
+    "d1291" : 50801,
+    "d1655" : 62128,
+    "d2103" : 80450,
+    "d15112" : 1573084,
+    "d18512" : 645238,
+    "dantzig42" : 699,
+    "dsj1000" : 18659688,
+    "eil51" : 426,
+    "eil76" : 538,
+    "eil101" : 629,
+    "fl417" : 11861,
+    "fl1400" : 20127,
+    "fl1577" : 22249,
+    "fl3795" : 28772,
+    "fnl4461" : 182566,
+    "fri26" : 937,
+    "gil262" : 2378,
+    "gr17" : 2085,
+    "gr21" : 2707,
+    "gr24" : 1272,
+    "gr48" : 5046,
+    "gr96" : 55209,
+    "gr120" : 6942,
+    "gr137" : 69853,
+    "gr202" : 40160,
+    "gr229" : 134602,
+    "gr431" : 171414,
+    "gr666" : 294358,
+    "hk48" : 11461,
+    "kroA100" : 21282,
+    "kroB100" : 22141,
+    "kroC100" : 20749,
+    "kroD100" : 21294,
+    "kroE100" : 22068,
+    "kroA150" : 26524,
+    "kroB150" : 26130,
+    "kroA200" : 29368,
+    "kroB200" : 29437,
+    "lin105" : 14379,
+    "lin318" : 42029,
+    "linhp318" : 41345,
+    "nrw1379" : 56638,
+    "p654" : 34643,
+    "pa561" : 2763,
+    "pcb442" : 50778,
+    "pcb1173" : 56892,
+    "pcb3038" : 137694,
+    "pla7397" : 23260728,
+    "pla33810" : 66048945,
+    "pla85900" : 142382641,
+    "pr76" : 108159,
+    "pr107" : 44303,
+    "pr124" : 59030,
+    "pr136" : 96772,
+    "pr144" : 58537,
+    "pr152" : 73682,
+    "pr226" : 80369,
+    "pr264" : 49135,
+    "pr299" : 48191,
+    "pr439" : 107217,
+    "pr1002" : 259045,
+    "pr2392" : 378032,
+    "rat99" : 1211,
+    "rat195" : 2323,
+    "rat575" : 6773,
+    "rat783" : 8806,
+    "rd100" : 7910,
+    "rd400" : 15281,
+    "rl1304" : 252948,
+    "rl1323" : 270199,
+    "rl1889" : 316536,
+    "rl5915" : 565530,
+    "rl5934" : 556045,
+    "rl11849" : 923288,
+    "si175" : 21407,
+    "si535" : 48450,
+    "si1032" : 92650,
+    "st70" : 675,
+    "swiss42" : 1273,
+    "ts225" : 126643,
+    "tsp225" : 3916,
+    "u159" : 42080,
+    "u574" : 36905,
+    "u724" : 41910,
+    "u1060" : 224094,
+    "u1432" : 152970,
+    "u1817" : 57201,
+    "u2152" : 64253,
+    "u2319" : 234256,
+    "ulysses16" : 6859,
+    "ulysses22" : 7013,
+    "usa13509" : 19982859,
+    "vm1084" : 239297,
+    "vm1748" : 336556
 }
-
-optimal_path = {
-    10: base_path / 'solve10.o',
-    11: base_path / 'solve11.o',
-    20: base_path / 'solve20.o',
-    21: base_path / 'solve21.o',
-    50: base_path / 'solve50.o',
-    51: base_path / 'solve51.o',
-    100: base_path / 'solve100.o',
-    101: base_path / 'solve101.o'
-}
-
-
-
-"Оптимумы для 10 - 2892"
-"Оптимумы для 11 - 2869"
-"Оптимумы для 20 - 3753"
-"Оптимум для 21 - 3673"
-"Оптимум для 50 - 5978"
-"Оптимум для 51 - 5775"
-"Оптимум для 100 - 7740"
-"Оптимум для 101 - 7748"
-
-"Пересчет оптимумов такой - n * w_max - w_i_j"
-
-def get_path(n: int) -> Path:
-    if n not in (10, 11, 20, 21, 50, 51, 100, 101):
-        raise ValueError('Invalid value for n')
-
-    return base_path / f'custom{n}.tsp'
-
-
-def negative_distance(start, end) -> float:  # type: ignore
-    return -tsplib95.distances.euclidean(start, end)  # type: ignore
 
 
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
-    problem = tsplib95.load(path)
-    new_graph = Graph()
-    graph = problem.get_graph()
-    edges = [(x,y, -graph.get_edge_data(x, y)["weight"]) for x,y in graph.edges if x != y]
+    problem = tsplib95.load(path); m = 10 ** 5
+    name = str(path).split("/")[-1].split(".")[0]
+    new_graph = Graph(); graph = problem.get_graph()
+    edges = [(x,y, m - graph.get_edge_data(x, y)["weight"]) for x,y in graph.edges if x != y]
     new_graph.add_weighted_edges_from(edges)
-    n = new_graph.number_of_nodes()
-    opt = -optimal[n]
+    opt = new_graph.number_of_nodes() * m - optimal[name]
 
     return new_graph, opt
 
 
-def solve(path: Path) -> None:
-    g, opt = inverse_tsp(path)
-    solver = Algorithm(g)
+def solve(path: Path, f: TextIO) -> None:
+    try:
+        g, opt = inverse_tsp(path)
+        act = algo(g)
 
-    print("Оптимальное решение алгоритма:", solver.find_solution())
-    print("Оптимальное решение:", opt)
+        if act is None:
+            f.write(f"Не можем удалить два ребра")
+            return
+
+        f.write(f"Оптимальное решение алгоритма: {act}\n")
+        f.write(f"Оптимальное решение: {opt}\n\n")
+        f.write(f"Epsilon: {act/opt}\n")
+    except Exception:
+        f.write("Задача не решена")
+
+def write_solve(name):
+    with open(base_solve_path / name, "w") as f:
+        print(f"Задача: {name}\n")
+        f.write(f"Задача: {name}\n"); solve(base_path / name, f)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="Kostochka-Algo"
-    )
+    with Pool(4) as pool:
+        tasks = [pool.apply_async(write_solve, (name,)) for name in os.listdir(base_path)]
+        res = [task.get() for task in tasks]
 
-    parser.add_argument('n', type=int)
-    args = parser.parse_args()
-
-    path = get_path(args.n)
-
-    solve(path)
+def s_main():
+    write_solve("dantzig42.tsp")
 
 
 if __name__ == '__main__':
