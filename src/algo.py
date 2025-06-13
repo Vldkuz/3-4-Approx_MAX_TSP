@@ -17,55 +17,73 @@ def weight(g: Graph):
 
 def algo(g: Graph):
     n = g.number_of_nodes()
-    matching = find_max_matching(g)
 
+    matching = find_max_matching(g)
     match_edges = list(matching.edges)
     g.remove_edges_from(match_edges)
 
-    two_factor = [nx.k_factor(g, k=2)]
+    k_factor = nx.k_factor(g, k=2)
+    two_factor = [k_factor.subgraph(c).copy() for c in nx.connected_components(k_factor)]
 
     if n % 2 == 0:
         t1 = matching; t2 = Graph()
-
-        for cycle in two_factor:
-            edges = set(cycle.edges)
-            u, v = edges.pop()
-            t1.add_edge(u, v, weight=g.get_edge_data(u, v)["weight"])
-
-            for edge in edges:
-                u, v = edge
-                t2.add_edge(u, v, weight=g.get_edge_data(u, v)["weight"])
-
     else:
-        s1: Graph = two_factor[0].copy(); v = list(s1.nodes)[-1]
-
         edges_to_select = filter(
-            lambda e: all([e not in x.edges for x in two_factor]),
+            lambda e: all([not x.has_edge(e[0],e[1]) for x in two_factor]),
             [(u,p) for u,p in g.edges]
         )
 
         e  = max(edges_to_select, key=lambda x: g.get_edge_data(x[0],x[1])["weight"])
-        v, u = e; v_edges = s1.edges(v); u_edges = s1.edges(u); s1.add_edge(v,u, weight=g.get_edge_data(u,v)["weight"])
+
+        u, v = e
+        s1_select = [x for x in two_factor if x.has_node(u) and x.has_node(v)]
+        assert len(s1_select) == 1 or len(s1_select) == 0
+
+        if len(s1_select) == 1:
+            s1, = s1_select; v_edges = s1.edges(v); u_edges = s1.edges(u)
+
+            graph = s1.copy()
+            graph.add_edge(u,v, weight=g.get_edge_data(u,v)["weight"])
+            two_factor.remove(s1)
+
+        else:
+            s1, = [x for x in two_factor if x.has_node(v)]
+            s2, = [x for x in two_factor if x.has_node(u)]
+
+            v_edges = s1.edges(v); u_edges = s2.edges(u)
+
+            graph = g.edge_subgraph(list(s1.edges) + list(s2.edges)).copy()
+            graph.add_edge(u,v, weight=g.get_edge_data(u,v)["weight"])
+            two_factor.remove(s1); two_factor.remove(s2)
+
+
         u_rem = None; v_rem = None
 
         for v_edge, u_edge in itertools.product(v_edges, u_edges):
-            if v_edge == u_edge or v_edge[::-1] == u_edge or u_edge[::-1] == v_edge:
-                continue
+            t2 = graph.copy()
 
-            t2 = s1.copy()
-            t2.remove_edge(v_edge[0], v_edge[1]); t2.remove_edge(u_edge[0], u_edge[1])
+            t2.remove_edge(v_edge[0], v_edge[1])
+            t2.remove_edge(u_edge[0], u_edge[1])
 
             if nx.is_connected(t2):
                 u_rem = u_edge; v_rem = v_edge
                 break
 
-        if u_rem is None and v_rem is None:
-            return None
+        assert u_rem is not None and v_rem is not None
 
         u_l, u_r = u_rem; v_l, v_r = v_rem
         t1 = matching
         t1.add_edge(u_l, u_r, weight=g.get_edge_data(u_l, u_r)["weight"])
         t1.add_edge(v_l, v_r, weight=g.get_edge_data(v_l, v_r)["weight"])
+
+    for cycle in two_factor:
+        edges = set(cycle.edges)
+        u, v = edges.pop()
+        t1.add_edge(u, v, weight=g.get_edge_data(u, v)["weight"])
+
+        for edge in edges:
+            u, v = edge
+            t2.add_edge(u, v, weight=g.get_edge_data(u, v)["weight"])
 
     t = max(t1, t2, key=lambda x: weight(x))
 
@@ -87,18 +105,3 @@ def algo(g: Graph):
 
     t.add_edge(u,v, weight=g.get_edge_data(u,v)["weight"])
     return weight(t)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

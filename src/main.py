@@ -1,9 +1,11 @@
 import argparse
+import logging
 import os
 from multiprocessing import Pool
 from pathlib import Path
 from typing import Any, TextIO
 
+import networkx as nx
 import tsplib95  # type: ignore
 from networkx.classes import Graph  # type: ignore
 
@@ -11,6 +13,8 @@ from algo import algo
 
 base_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' / 'tasks'
 base_solve_path = Path(__file__).resolve().parent.parent / 'datasets' / 'solve'
+
+base_edgelist_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' /'edgelists'
 
 optimal = {
     "a280" : 2579,
@@ -139,19 +143,12 @@ def inverse_tsp(path: Path) -> tuple[Graph, Any]:
 
 
 def solve(path: Path, f: TextIO) -> None:
-    try:
-        g, opt = inverse_tsp(path)
-        act = algo(g)
+    g, opt = inverse_tsp(path)
+    act = algo(g)
 
-        if act is None:
-            f.write(f"Не можем удалить два ребра")
-            return
-
-        f.write(f"Оптимальное решение алгоритма: {act}\n")
-        f.write(f"Оптимальное решение: {opt}\n\n")
-        f.write(f"Epsilon: {act/opt}\n")
-    except Exception:
-        f.write("Задача не решена")
+    f.write(f"Оптимальное решение алгоритма: {act}\n")
+    f.write(f"Оптимальное решение: {opt}\n\n")
+    f.write(f"Epsilon: {act/opt}\n")
 
 def write_solve(name):
     with open(base_solve_path / name, "w") as f:
@@ -160,13 +157,17 @@ def write_solve(name):
 
 
 def main() -> None:
-    with Pool(4) as pool:
+    with Pool(10) as pool:
         tasks = [pool.apply_async(write_solve, (name,)) for name in os.listdir(base_path)]
         res = [task.get() for task in tasks]
 
-def s_main():
-    write_solve("dantzig42.tsp")
+def convert(path: Path) -> None:
+    problem = tsplib95.load(path)
+    name = str(path).split("/")[-1].split(".")[0]
+    graph = problem.get_graph()
+    nx.write_weighted_edgelist(graph, base_edgelist_path / f"{name}.gz")
 
 
 if __name__ == '__main__':
-    main()
+    for name in os.listdir(base_path):
+        convert(base_path / name)
