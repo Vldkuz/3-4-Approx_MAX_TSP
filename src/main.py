@@ -5,8 +5,7 @@ from multiprocessing import Pool
 from pathlib import Path
 from typing import Any, TextIO
 
-import networkx as nx
-import tsplib95  # type: ignore
+import networkx as nx # type: ignore
 from networkx.classes import Graph  # type: ignore
 
 from algo import algo
@@ -132,7 +131,7 @@ optimal = {
 
 
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
-    problem = tsplib95.load(path); m = 10 ** 5
+    problem = nx.read_weighted_edgelist(path); m = 10 ** 5
     name = str(path).split("/")[-1].split(".")[0]
     new_graph = Graph(); graph = problem.get_graph()
     edges = [(x,y, m - graph.get_edge_data(x, y)["weight"]) for x,y in graph.edges if x != y]
@@ -161,13 +160,6 @@ def main() -> None:
         tasks = [pool.apply_async(write_solve, (name,)) for name in os.listdir(base_path)]
         res = [task.get() for task in tasks]
 
-def convert(path: Path) -> None:
-    problem = tsplib95.load(path)
-    name = str(path).split("/")[-1].split(".")[0]
-    graph = problem.get_graph()
-    nx.write_weighted_edgelist(graph, base_edgelist_path / f"{name}.gz")
-
 
 if __name__ == '__main__':
-    for name in os.listdir(base_path):
-        convert(base_path / name)
+    main()
