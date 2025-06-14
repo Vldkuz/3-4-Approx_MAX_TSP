@@ -10,7 +10,7 @@ from networkx.classes import Graph  # type: ignore
 
 from algo import algo
 
-base_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' / 'tasks'
+base_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' / 'edgelists'
 base_solve_path = Path(__file__).resolve().parent.parent / 'datasets' / 'solve'
 
 base_edgelist_path = Path(__file__).resolve().parent.parent / 'datasets' / 'tsplib' /'edgelists'
@@ -131,9 +131,9 @@ optimal = {
 
 
 def inverse_tsp(path: Path) -> tuple[Graph, Any]:
-    problem = nx.read_weighted_edgelist(path); m = 10 ** 5
+    graph = nx.read_weighted_edgelist(path); m = 10 ** 5
     name = str(path).split("/")[-1].split(".")[0]
-    new_graph = Graph(); graph = problem.get_graph()
+    new_graph = Graph()
     edges = [(x,y, m - graph.get_edge_data(x, y)["weight"]) for x,y in graph.edges if x != y]
     new_graph.add_weighted_edges_from(edges)
     opt = new_graph.number_of_nodes() * m - optimal[name]
@@ -156,7 +156,7 @@ def write_solve(name):
 
 
 def main() -> None:
-    with Pool(10) as pool:
+    with Pool(3) as pool:
         tasks = [pool.apply_async(write_solve, (name,)) for name in os.listdir(base_path)]
         res = [task.get() for task in tasks]
 

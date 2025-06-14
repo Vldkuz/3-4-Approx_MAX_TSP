@@ -17,12 +17,14 @@ def weight(g: Graph):
 
 def algo(g: Graph):
     n = g.number_of_nodes()
+    p = g.copy()
 
     matching = find_max_matching(g)
     match_edges = list(matching.edges)
-    g.remove_edges_from(match_edges)
 
-    k_factor = nx.k_factor(g, k=2)
+    p.remove_edges_from(match_edges)
+
+    k_factor = nx.k_factor(p, k=2)
     two_factor = [k_factor.subgraph(c).copy() for c in nx.connected_components(k_factor)]
 
     if n % 2 == 0:
